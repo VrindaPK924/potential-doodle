@@ -1,2 +1,55 @@
 # Google App Engine generated folder
-appengine-generated/
+appengine-pip install fastapi uvicorn databases sqlalchemy
+pip install fastapi uvicorn databases motor
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import databases
+import databases.core
+import sqlalchemy
+import motor.motor_asyncio
+
+DATABASE_URL = "postgresql://your_username:your_password@localhost/your_database"
+MONGODB_URL = "mongodb://localhost:27017"
+
+database = databases.Database(DATABASE_URL)
+metadata = sqlalchemy.MetaData()
+engine = sqlalchemy.create_engine(DATABASE_URL)
+metadata.create_all(engine)
+
+app = FastAPI()
+
+# Define a PostgreSQL model
+class UserPostgreSQL(BaseModel):
+    first_name: str
+    password: str
+    email: str
+    phone: str
+
+# Define a MongoDB model
+class UserProfileMongoDB(BaseModel):
+    profile_picture: str
+
+# Route for user registration
+@app.post("/register")
+async def register_user(user_data: UserPostgreSQL):
+    query = sqlalchemy.insert(users).values(
+        first_name=user_data.first_name,
+        password=user_data.password,
+        email=user_data.email,
+        phone=user_data.phone,
+    )
+    user_id = await database.execute(query)
+    return {"user_id": user_id}
+
+# Route to store profile picture in MongoDB
+@app.post("/upload-profile-picture/{user_id}")
+async def upload_profile_picture(user_id: int, profile_data: UserProfileMongoDB):
+    mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
+    mongo_db = mongo_client["mydatabase"]
+    profile_pictures = mongo_db["profile_pictures"]
+
+    result = await profile_pictures.insert_one(
+        {"user_id": user_id, "profile_picture": profile_data.profile_picture}
+    )
+    return {"profile_picture_id": str(result.inserted_id)}
+
